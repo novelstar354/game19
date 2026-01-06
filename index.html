@@ -2,8 +2,8 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>Minesweeper Complete</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Minesweeper Ultimate</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <style>
 :root{
   --bg:#0f172a;
@@ -23,53 +23,72 @@ body{
   color:var(--text);
   font-family:sans-serif;
   text-align:center;
+  overflow:hidden;
 }
-h1{margin:8px;}
+h1{margin:4px;font-size:20px}
+
 #top{
   display:flex;
   flex-wrap:wrap;
   justify-content:center;
-  gap:8px;
+  gap:6px;
 }
+
 select,button,label{
-  padding:6px 10px;
+  padding:4px 8px;
   font-size:14px;
 }
+
 #info{
-  margin:8px;
-  font-size:16px;
+  margin:4px;
+  font-size:14px;
   display:flex;
   justify-content:center;
-  gap:15px;
+  gap:12px;
 }
+
+#boardWrap{
+  display:flex;
+  justify-content:center;
+  overflow:auto;
+}
+
 #board{
   display:grid;
-  justify-content:center;
-  margin:10px auto;
-  gap:2px;
+  gap:0;
+  transform:scale(1);
+  transform-origin:top center;
 }
+
 .cell{
-  width:30px;
-  height:30px;
+  width:22px;
+  height:22px;
   background:var(--cell);
   display:flex;
   align-items:center;
   justify-content:center;
   font-weight:bold;
-  cursor:pointer;
   user-select:none;
+  border:1px solid rgba(0,0,0,0.25);
 }
-.cell.open{background:var(--open);cursor:default;}
+.cell.open{background:var(--open);}
 .cell.mine{background:#dc2626;}
-.cell.sel{outline:2px solid #38bdf8;}
+.cell.sel{outline:2px solid #38bdf8;outline-offset:-2px;}
+
+canvas{
+  position:fixed;
+  inset:0;
+  pointer-events:none;
+}
+
 @media(max-width:600px){
-  .cell{width:26px;height:26px;font-size:14px;}
+  .cell{width:20px;height:20px;font-size:12px;}
 }
 </style>
 </head>
 <body>
 
-<h1>💣 マインスイーパー 完全版</h1>
+<h1>💣 マインスイーパー</h1>
 
 <div id="top">
   <select id="level">
@@ -78,8 +97,11 @@ select,button,label{
     <option value="30,16,99">上級</option>
   </select>
   <button onclick="start()">スタート</button>
-  <label><input type="checkbox" id="sound"> 効果音</label>
-  <button onclick="toggleTheme()">テーマ</button>
+  <button onclick="toggleFullscreen()">⛶</button>
+  <button onclick="zoom(0.1)">＋</button>
+  <button onclick="zoom(-0.1)">－</button>
+  <label><input type="checkbox" id="sound">🔊</label>
+  <button onclick="toggleTheme()">🎨</button>
 </div>
 
 <div id="info">
@@ -88,22 +110,36 @@ select,button,label{
   🏆 <span id="best">--</span>s
 </div>
 
-<div id="board"></div>
+<div id="boardWrap">
+  <div id="board"></div>
+</div>
+
+<canvas id="confetti"></canvas>
 
 <script>
 let w,h,mineCount;
 let board=[],opened=0,flags=0,gameOver=false;
-let timer=0,timerId=null;
+let timer=0,timerId;
 let cx=0,cy=0;
-const se=new Audio("data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=");
+let scale=1;
+
+const ctx=document.getElementById("confetti").getContext("2d");
+const cvs=document.getElementById("confetti");
+resize();
+window.onresize=resize;
+
+function resize(){
+  cvs.width=innerWidth;
+  cvs.height=innerHeight;
+}
 
 function start(){
-  const lv=document.getElementById("level").value.split(",");
+  const lv=level.value.split(",");
   w=+lv[0];h=+lv[1];mineCount=+lv[2];
   board=[];opened=0;flags=0;gameOver=false;
   cx=0;cy=0;timer=0;
   clearInterval(timerId);
-  timerId=setInterval(()=>{timer++;time.textContent=timer;},1000);
+  timerId=setInterval(()=>time.textContent=++timer,1000);
 
   mines.textContent=mineCount;
   best.textContent=localStorage["best"+mineCount]||"--";
@@ -117,11 +153,13 @@ function start(){
       board[y][x]={mine:false,num:0,open:false,flag:false};
     }
   }
+
   let p=0;
   while(p<mineCount){
     let x=Math.random()*w|0,y=Math.random()*h|0;
     if(!board[y][x].mine){board[y][x].mine=true;p++;}
   }
+
   for(let y=0;y<h;y++)for(let x=0;x<w;x++){
     if(board[y][x].mine)continue;
     let n=0;
@@ -131,6 +169,7 @@ function start(){
     }
     board[y][x].num=n;
   }
+
   for(let y=0;y<h;y++)for(let x=0;x<w;x++){
     const d=document.createElement("div");
     d.className="cell";
@@ -145,10 +184,9 @@ function start(){
 
 function openCell(x,y){
   if(gameOver)return;
-  const c=board[y][x],d=cDiv(x,y);
+  const c=board[y][x],d=cell(x,y);
   if(c.open||c.flag)return;
   c.open=true;d.classList.add("open");
-  play();
   if(c.mine){d.textContent="💣";d.classList.add("mine");end(false);return;}
   opened++;
   if(c.num)d.textContent=c.num;
@@ -161,7 +199,7 @@ function openCell(x,y){
 
 function flag(x,y){
   if(gameOver)return;
-  const c=board[y][x],d=cDiv(x,y);
+  const c=board[y][x],d=cell(x,y);
   if(c.open)return;
   c.flag=!c.flag;
   d.textContent=c.flag?"🚩":"";
@@ -175,38 +213,60 @@ function end(clear){
   if(clear){
     let b=localStorage["best"+mineCount];
     if(!b||timer<b)localStorage["best"+mineCount]=timer;
-    alert("🎉 クリア！");
+    confetti();
+    setTimeout(()=>alert("🎉 クリア！"),300);
   }else alert("💥 ゲームオーバー");
 }
 
-function cDiv(x,y){return document.getElementsByClassName("cell")[y*w+x];}
-function play(){if(sound.checked)se.play();}
+function confetti(){
+  let pieces=150;
+  let arr=[...Array(pieces)].map(()=>({
+    x:Math.random()*cvs.width,
+    y:-20,
+    r:Math.random()*6+4,
+    c:`hsl(${Math.random()*360},100%,50%)`,
+    v:Math.random()*3+2
+  }));
+  let t=setInterval(()=>{
+    ctx.clearRect(0,0,cvs.width,cvs.height);
+    arr.forEach(p=>{
+      p.y+=p.v;
+      ctx.fillStyle=p.c;
+      ctx.fillRect(p.x,p.y,p.r,p.r);
+    });
+    if(arr.every(p=>p.y>cvs.height))clearInterval(t);
+  },16);
+}
+
+function zoom(v){
+  scale=Math.min(2,Math.max(0.6,scale+v));
+  boardEl.style.transform=`scale(${scale})`;
+}
+
+function toggleFullscreen(){
+  if(!document.fullscreenElement)document.documentElement.requestFullscreen();
+  else document.exitFullscreen();
+}
+
 function toggleTheme(){document.body.classList.toggle("light");}
+function cell(x,y){return document.getElementsByClassName("cell")[y*w+x];}
 function updateSel(){
   document.querySelectorAll(".cell").forEach(c=>c.classList.remove("sel"));
-  cDiv(cx,cy).classList.add("sel");
+  cell(cx,cy).classList.add("sel");
 }
 
 document.addEventListener("keydown",e=>{
+  if(e.key==="f"||e.key==="F"){toggleFullscreen();return;}
   if(gameOver)return;
   if(e.key==="ArrowLeft")cx=Math.max(0,cx-1);
   if(e.key==="ArrowRight")cx=Math.min(w-1,cx+1);
   if(e.key==="ArrowUp")cy=Math.max(0,cy-1);
   if(e.key==="ArrowDown")cy=Math.min(h-1,cy+1);
   if(e.key==="Enter"||e.key===" ")openCell(cx,cy);
-  if(e.key==="f"||e.key==="F")flag(cx,cy);
   updateSel();
 });
 
 const boardEl=document.getElementById("board");
-const time=document.getElementById("time");
-const mines=document.getElementById("mines");
-const best=document.getElementById("best");
-const sound=document.getElementById("sound");
-
-sound.checked=localStorage.sound==="1";
-sound.onchange=()=>localStorage.sound=sound.checked?"1":"0";
-
 start();
 </script>
 </body>
