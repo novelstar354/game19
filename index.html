@@ -2,8 +2,9 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>Minesweeper Ultimate</title>
+<title>マインスイーパー</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+ <link rel="icon" href="https://upload.wikimedia.org/wikipedia/commons/thumb/8/83/Minesweeper_flag.svg/2048px-Minesweeper_flag.svg.png" sizes="16×16" type="image/png" />  
 <style>
 :root{
   --bg:#0f172a;
@@ -88,7 +89,7 @@ canvas{
 </head>
 <body>
 
-<h1>💣 マインスイーパー</h1>
+<h1>マインスイーパー</h1>
 
 <div id="top">
   <select id="level">
@@ -100,8 +101,8 @@ canvas{
   <button onclick="toggleFullscreen()">⛶</button>
   <button onclick="zoom(0.1)">＋</button>
   <button onclick="zoom(-0.1)">－</button>
-  <label><input type="checkbox" id="sound">🔊</label>
-  <button onclick="toggleTheme()">🎨</button>
+  <label><input type="checkbox" id="sound">🔊 BGM・SE</label>
+  <button onclick="toggleTheme()">🎨 テーマ</button>
 </div>
 
 <div id="info">
